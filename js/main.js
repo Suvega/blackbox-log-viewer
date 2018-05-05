@@ -224,6 +224,74 @@ function BlackboxLogViewer() {
             
         }
     }
+
+    
+    function saveCSV(csvData) {
+
+        var file = 'output.csv'; // No filename to save to, make one up
+
+        var blob = new Blob([csvData], {type: 'text/csv'}),
+        e    = document.createEvent('MouseEvents'),
+        a    = document.createElement('a');
+
+        a.download = file;
+        a.href = window.URL.createObjectURL(blob);
+        a.dataset.downloadurl =  ['text/csv', a.download, a.href].join(':');
+        e.initMouseEvent('click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+        a.dispatchEvent(e);
+        //window.open(a.href);
+        //a.click();
+
+    }
+
+
+    function exportValuesChart() {
+        var 
+            table = $(".log-field-values table"),
+            i,
+            minTime = flightLog.getMinTime(),
+            maxTime = flightLog.getMaxTime(),
+            fieldNames = flightLog.getMainFieldNames(),
+            fieldCount = fieldNames.length;
+        
+        let csvContent = "";
+        let fieldNamesCSV = fieldNames.join(",");
+        csvContent += fieldNamesCSV + "\r\n";
+
+        /**
+         * Let's parse through this 1 second at a time
+         */
+
+
+        var chunks = flightLog.getSmoothedChunksInTimeRange(minTime, maxTime);
+        var chk, frm;
+        var BreakException = {};
+        for (chk = 0; chk < chunks.length; chk++)
+        {
+            var chunk = chunks[chk];
+            for (frm = 0; frm < chunk.frames.length; frm++)
+            {
+                var frame = chunk.frames[frm];
+                var currentFlightMode = frame[flightLog.getMainFieldIndexByName("flightModeFlags")];
+                let rowValues = "";
+
+                for (i = 0; i < fieldCount; i++) {
+                    var theFieldName, theFieldValue, theFieldUnits, theFieldFriendlyValue;
+                    theFieldName = fieldPresenter.fieldNameToFriendly(fieldNames[i], flightLog.getSysConfig().debug_mode);
+                    theFieldValue = atMost2DecPlaces(frame[i]);
+                    if (i != 0) theFieldValue = fieldPresenter.decodeFieldToFriendly(flightLog, fieldNames[i], frame[i], currentFlightMode);
+                    //myString = "Field:" + theFieldName + ": " + theFieldValue + theFieldUnits;
+                    //console.log("Field:" + theFieldName + ": " + theFieldValue);
+                    theFieldValue = String(theFieldValue).replace(/,/g," ");
+                    rowValues += '"' + theFieldValue + '"' + ",";
+                }
+                csvContent += rowValues.slice(0,-1) + "\r\n";
+            };
+        };
+        return csvContent;
+        //var encodedUri = encodeURI(csvContent);
+        //window.open(encodedUri);
+    }
     
     updateValuesChartRateLimited = $.throttle(250, updateValuesChart);
     
@@ -591,6 +659,7 @@ function BlackboxLogViewer() {
         
         setGraphState(GRAPH_STATE_PAUSED);
         setGraphZoom(graphZoom);
+        
     }
 
     function loadFileMessage(fileName) {
@@ -1327,6 +1396,12 @@ function BlackboxLogViewer() {
         $(".btn-workspaces-export").click(function(e) {
             setGraphState(GRAPH_STATE_PAUSED);
             saveWorkspaces();
+            e.preventDefault();
+        });
+
+        $(".btn-csv-export").click(function(e) {
+            setGraphState(GRAPH_STATE_PAUSED);
+            saveCSV(exportValuesChart());
             e.preventDefault();
         });
         
